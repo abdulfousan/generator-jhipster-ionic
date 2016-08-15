@@ -5,9 +5,9 @@
         .module('main')
         .factory('AuthServerProvider', AuthServerProvider);
 
-    AuthServerProvider.$inject = ['$http', '$localStorage', '$sessionStorage', '$q', 'Config'];
+    AuthServerProvider.$inject = ['$http', '$localStorage', '$sessionStorage', '$q', 'Config', '$ionicHistory'];
 
-    function AuthServerProvider ($http, $localStorage, $sessionStorage, $q, Config) {
+    function AuthServerProvider ($http, $localStorage, $sessionStorage, $q, Config, $ionicHistory) {
         var service = {
             getToken: getToken,
             hasValidToken: hasValidToken,
@@ -29,6 +29,8 @@
         }
 
         function login (credentials) {
+            $ionicHistory.clearCache();
+            $ionicHistory.clearHistory();
 
             var data = {
                 username: credentials.username,
@@ -40,7 +42,7 @@
             function authenticateSuccess (data, status, headers) {
                 var bearerToken = headers('Authorization');
                 if(bearerToken === null){
-                  bearerToken = 'Bearer '+data.id_token;
+                    bearerToken = 'Bearer '+data.id_token;
                 }
                 if (angular.isDefined(bearerToken) && bearerToken.slice(0, 7) === 'Bearer ') {
                     var jwt = bearerToken.slice(7, bearerToken.length);
@@ -72,6 +74,8 @@
         }
 
         function logout () {
+            $ionicHistory.clearCache();
+            $ionicHistory.clearHistory();
             delete $localStorage.authenticationToken;
             delete $sessionStorage.authenticationToken;
         }

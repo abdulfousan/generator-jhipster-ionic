@@ -5,9 +5,10 @@
         .module('main')
         .factory('AuthServerProvider', AuthServerProvider);
 
-    AuthServerProvider.$inject = ['$http', '$localStorage', 'Config'<% if (enableWebsocket) { %>, 'JhiTrackerService'<% } %>];
+    AuthServerProvider.$inject = ['$http', '$localStorage', '$ionicHistory', 'Config'<% if (enableWebsocket) { %>, 'JhiTrackerService'<% } %>];
 
-    function AuthServerProvider ($http, $localStorage, Config<% if (enableWebsocket) { %>, JhiTrackerService<% } %>) {
+    function AuthServerProvider ($http, $localStorage, $ionicHistory, Config<% if (enableWebsocket) { %>, JhiTrackerService<% } %>) {
+        var numError = 0;
         var service = {
             getToken: getToken,
             hasValidToken: hasValidToken,
@@ -28,6 +29,8 @@
         }
 
         function login (credentials) {
+            $ionicHistory.clearCache();
+            $ionicHistory.clearHistory();
             var data = 'j_username=' + encodeURIComponent(credentials.username) +
                 '&j_password=' + encodeURIComponent(credentials.password) +
                 '&remember-me=' + credentials.rememberMe + '&submit=Login';
@@ -37,19 +40,33 @@
                     'Content-Type': 'application/x-www-form-urlencoded'
                 }
             }).success(function (response) {
+                numError = 0;
+                $http.post(Config.ENV.SERVER_URL + 'api/account').error(function (data, code, headers) {
+                    $localStorage['X-CSRF-TOKEN'] = headers('x-csrf-token-ionic');
+                });
                 return response;
+            }).error(function (error, code, headers) {
+                numError += 1;
+                $localStorage['X-CSRF-TOKEN'] = headers('x-csrf-token-ionic');
+                if (numError < 2) {
+                    login(credentials);
+                }
             });
         }
 
         function logout () {<% if (enableWebsocket) { %>
             JhiTrackerService.disconnect();<% } %>
             // logout from the server
-            $http.post(Config.ENV.SERVER_URL + 'api/logout').success(function (response) {
-                delete $localStorage.authenticationToken;
-                // to get a new csrf token call the api
-                $http.get(Config.ENV.SERVER_URL + 'api/account');
-                return response;
-            });
+            $ionicHistory.clearCache();
+            $ionicHistory.clearHistory();
+            $http.post(Config.ENV.SERVER_URL + 'api/logout')
+                .success(function (response) {
+                    // to get a new csrf token call the api
+                    $http.post(Config.ENV.SERVER_URL + 'api/account').error(function (data, code, headers) {
+                        $localStorage['X-CSRF-TOKEN'] = headers('x-csrf-token-ionic');
+                    });
+                    return response;
+                });
 
         }
     }

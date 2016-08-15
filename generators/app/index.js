@@ -146,6 +146,7 @@ module.exports = yeoman.Base.extend({
       var done = this.async();
       this.baseName = this.appConfig.baseName;
       this.packageName = this.appConfig.packageName;
+      this.packageFolder = this.appConfig.packageFolder;
       this.angularAppBaseName  = snakeToCamel(this.appConfig.baseName);
       this.angularAppName = this.angularAppBaseName + 'App';
       this.searchEngine = this.appConfig.searchEngine;
@@ -265,21 +266,6 @@ module.exports = yeoman.Base.extend({
         this.template('m-ionic/gulp/building.js', 'gulp/building.js');
       }
 
-      //remove default urlRouterProvider
-      jhipsterUtils.replaceContent({
-        file: 'app/main/jhipster/blocks/config/http.config.js',
-        pattern: '$urlRouterProvider.otherwise(\'/\');',
-        content: '',
-        regex: false
-      }, this);
-
-      //remove default urlRouterProvider
-      jhipsterUtils.replaceContent({
-        file: 'app/main/jhipster/blocks/config/http.config.js',
-        pattern: '$urlRouterProvider.otherwise(\'/\');',
-        content: '',
-        regex: false
-      }, this);
       //add other folders to templates dir so html can be loaded from a JHipster structure
       jhipsterUtils.replaceContent({
         file: 'gulpfile.js',
@@ -303,11 +289,20 @@ module.exports = yeoman.Base.extend({
         this.template('jhipster/_auth.oauth2.service.js', 'app/main/jhipster/services/auth/auth.oauth2.service.js');
       }
       this.template('jhipster/_profile.service.js', 'app/main/jhipster/services/profiles/profile.service.js');
-      //social login fix
-      if (this.enableSocialSignIn) {
-        this.template('jhipster/_social.directive.js', 'app/main/jhipster/account/social/directive/social.directive.js');
-        this.template('jhipster/_social.service.js', 'app/main/jhipster/account/social/social.service.js');
+      copyTemplate('jhipster/_http.config.js', 'app/main/jhipster/blocks/config/http.config.js', 'stripJs', this, {}, true);
+
+      //fix CSRF tokens for Session Authentication
+      if (this.authenticationType === 'session') {
+        copyTemplate('jhipster/_auth.session.interceptor.js', 'app/main/jhipster/blocks/interceptor/auth.session.interceptor.js', 'stripJs', this, {}, true);
+        copyTemplate('jhipster/_auth.session.expired.interceptor.js', 'app/main/jhipster/blocks/interceptor/auth-expired.interceptor.js', 'stripJs', this, {}, true);
+        copyTemplate('jhipster/_CustomAccessDeniedHandler.java', this.jhipsterHome + '/src/main/java/' + this.packageFolder + '/security/CustomAccessDeniedHandler.java', 'copy', this, {}, true);
       }
+
+      //social login fix
+      // if (this.enableSocialSignIn) {
+        // copyTemplate('jhipster/_social.directive.js', 'app/main/jhipster/account/social/directive/social.directive.js', 'stripJs', this, {}, true);
+        // copyTemplate('jhipster/_social.service.js', 'app/main/jhipster/account/social/social.service.js', 'stripJs', this, {}, true);
+      // }
       //  copy styles into main.scss
       fse.readFile(this.templatePath('jhipster/_styles.scss'), 'utf8', function (err, data) {
         // console.log(data) // => css!
@@ -315,6 +310,18 @@ module.exports = yeoman.Base.extend({
           // console.log(err) // => no error!
         })
       })
+
+    //  remove the ion-nav-bar from index because we are using the side-menu option (prevents random color every time from m-ionic)
+      try {
+        jhipsterUtils.replaceContent({
+          file: 'app/index.html',
+          pattern: '<!-- the[\\s\\S]*bar>',
+          content: '',
+          regex: true
+        }, this);
+      } catch (e) {
+        this.log(chalk.yellow('\nUnable to find ') + filePath + chalk.yellow(' or missing required pattern. File rewrite failed.\n') + e);
+      }
     },
     //fixes and wiring for the JHipster code to work correctly in the Ionic project
     jhipsterToIonic: function () {

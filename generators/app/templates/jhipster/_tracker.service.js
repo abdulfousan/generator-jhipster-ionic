@@ -6,9 +6,9 @@
         .module('main')
         .factory('JhiTrackerService', JhiTrackerService);
 
-    JhiTrackerService.$inject = ['$rootScope', '$window', '$cookies', '$http', '$q', 'AuthServerProvider', 'Config'];
+    JhiTrackerService.$inject = ['$rootScope', '$window', '$http', '$q', '$localStorage'<% if (authenticationType === 'jwt') { %>, 'AuthServerProvider'<% } %>, 'Config'];
 
-    function JhiTrackerService ($rootScope, $window, $cookies, $http, $q, AuthServerProvider, Config) {
+    function JhiTrackerService ($rootScope, $window, $http, $q, $localStorage<% if (authenticationType === 'jwt') { %>, AuthServerProvider<% } %>, Config) {
         var stompClient = null;
         var subscriber = null;
         var listener = $q.defer();
@@ -31,7 +31,12 @@
             var loc = $window.location;
             //var url = '//' + loc.host + loc.pathname + 'websocket/tracker';
             var url = Config.ENV.SERVER_URL  + 'websocket/tracker';
-            var authToken = AuthServerProvider.getToken();
+            var authToken = '';
+        <% if (authenticationType === 'jwt') { %>authToken = AuthServerProvider.getToken();
+            <% } else { %>
+                if (angular.fromJson($localStorage.authenticationToken)) {
+                    authToken = angular.fromJson($localStorage.authenticationToken).access_token;
+                }<% } %>
             if(authToken){
                 url += '?access_token=' + authToken;
             }
@@ -39,6 +44,7 @@
             stompClient = Stomp.over(socket);
             var stateChangeStart;
             var headers = {};
+            headers['X-CSRF-TOKEN'] = $localStorage['X-CSRF-TOKEN'];
             stompClient.connect(headers, function() {
                 connected.resolve('success');
                 sendActivity();
@@ -71,8 +77,8 @@
             if (stompClient !== null && stompClient.connected) {
                 stompClient
                     .send('/topic/activity',
-                    {},
-                    angular.toJson({'page': $rootScope.toState.name}));
+                        {},
+                        angular.toJson({'page': $rootScope.toState.name}));
             }
         }
 
